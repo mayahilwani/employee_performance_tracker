@@ -12,6 +12,9 @@ export default function TherapyList() {
   const [therapies, setTherapies] = useState<Therapy[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editedTherapy, setEditedTherapy] = useState<Partial<Therapy>>({});
+  const [therapy_name, setName] = useState("");
+  const [cost, setCost] = useState("");
+  const [income, setIncome] = useState("");
   const [error, setError] = useState("");
 
   async function loadTherapies() {
@@ -41,6 +44,30 @@ export default function TherapyList() {
     }
   }
 
+  async function addTherapy() {
+    if (!therapy_name || !cost || !income) {
+      setError("Please fill all fields");
+      return;
+    }
+
+    try {
+      console.log("🔄 Adding Therapy:", { therapy_name, cost, income });
+      setError("");
+      await invoke('add_therapy', { 
+        therapyName: therapy_name, 
+        cost: parseFloat(cost), 
+        income: parseFloat(income) 
+      });
+      console.log("✅ Therapy added, refreshing list...");
+      await loadTherapies();
+      setName("");
+      setCost("");
+      setIncome("");
+    } catch (error) {
+      console.error('❌ Failed to add therapy:', error);
+      setError(`Failed to add therapy: ${error}`);
+    }
+  }
   useEffect(() => {
     loadTherapies();
   }, []);
@@ -55,9 +82,9 @@ export default function TherapyList() {
           <tr>
             <th>ID</th>
             <th>Therapy Name</th>
-            <th>Cost (€)</th>
-            <th>Income (€)</th>
-            <th>Actions</th>
+            <th>Kosten (€)</th>
+            <th>Einkommen (€)</th>
+            <th>Optionen</th>
           </tr>
         </thead>
         <tbody>
@@ -136,6 +163,33 @@ export default function TherapyList() {
           ))}
         </tbody>
       </table>
+      <input
+          value={therapy_name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Therapie Name"
+          className="border p-1 mr-2"
+        />
+        <input
+          value={cost}
+          onChange={(e) => setCost(e.target.value)}
+          placeholder="Kosten"
+          className="border p-1 mr-2"
+        />
+        <input
+          value={income}
+          onChange={(e) => setIncome(e.target.value)}
+          placeholder="Einkommen"
+          type="number"
+          step="0.01"
+          className="border p-1 mr-2"
+        />
+        <button
+          onClick={addTherapy}
+          className="bg-blue-500 text-white px-2 py-1 rounded"
+        >
+          Therapie hinfügen
+        </button>
     </div>
+    
   );
 }

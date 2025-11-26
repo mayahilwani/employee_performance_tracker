@@ -53,3 +53,24 @@ pub fn update_therapy(
     .map_err(|e| e.to_string())?;
     Ok(())
 }
+#[tauri::command]
+pub fn add_therapy(app_handle: AppHandle, therapy_name: String, cost: f64, income: f64) -> Result<(), String> {
+    println!("➕ add_therapy command called: {} - {} - {}", therapy_name, cost, income);
+    
+    let conn = db::init_db(&app_handle).map_err(|e| {
+        println!("❌ Database init error: {}", e);
+        e.to_string()
+    })?;
+    
+    conn.execute(
+        "INSERT INTO therapy (therapy_name, cost, income) VALUES (?1, ?2, ?3)",
+        params![therapy_name, cost, income],
+    )
+    .map_err(|e| {
+        println!("❌ Insert error: {}", e);
+        e.to_string()
+    })?;
+    
+    println!("✅ Therapy added successfully");
+    Ok(())
+}

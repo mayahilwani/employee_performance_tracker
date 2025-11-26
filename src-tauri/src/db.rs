@@ -14,7 +14,7 @@ pub fn get_db_path(app_handle: &AppHandle) -> PathBuf {
     let db_dir = app_data_dir.join("data");
     std::fs::create_dir_all(&db_dir).expect("Failed to create data directory");
 
-    let db_path = db_dir.join("app_data3.sqlite");
+    let db_path = db_dir.join("app_data4.sqlite"); // app_data4.sqlite 
     println!("📁 Database path: {:?}", db_path);
 
     db_path
@@ -30,11 +30,15 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             join_date TEXT NOT NULL,
-            monthly_rate REAL NOT NULL
+            monthly_rate REAL NOT NULL,
+            avg_hours REAL DEFAULT 8.0
         )",
         [],
     )?;
     println!("✅ Employees table ensured");
+    
+
+    // ---------------- PERFORMANCE ----------------
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS performance (
@@ -47,6 +51,9 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection> {
             kg_num INTEGER,
             mt_num INTEGER,
             mld_num INTEGER,
+            mdl_45_num INTEGER,
+            mdl_60_num INTEGER,
+            ma_num INTEGER,
             fango_num INTEGER,
             ultraschal_num INTEGER,
             hb_num INTEGER,
@@ -55,6 +62,10 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection> {
         [],
     )?;
     println!("✅ Performance table ensured");
+    let _ = conn.execute(
+        "ALTER TABLE performance RENAME COLUMN mdl_60_num TO mld_60_num",
+        [],
+    );
 
     // ---------------- THERAPY ----------------
     conn.execute(
@@ -67,25 +78,6 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection> {
         [],
     )?;
     println!("✅ Therapy table ensured");
-
-    // Insert default therapy names only if table is empty
-    let count: i64 = {
-    let mut stmt = conn.prepare("SELECT COUNT(*) FROM therapy")?;
-    stmt.query_row([], |row| row.get(0))?
-    };
-    if count == 0 {
-        println!("🧩 Inserting default therapy types...");
-        let therapies = vec!["mt", "kg", "mld", "fango", "ultraschal", "hb"];
-        for name in therapies {
-            conn.execute(
-                "INSERT INTO therapy (therapy_name, cost, income) VALUES (?, ?, ?)",
-                params![name, 50.0, 100.0], // dummy values
-            )?;
-        }
-        println!("✅ Default therapy rows inserted");
-    } else {
-        println!("ℹ️ Therapy table already has data — skipping insert");
-    }
 
     Ok(conn)
 }

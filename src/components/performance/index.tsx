@@ -16,7 +16,7 @@ export default function PerformanceView({
   useEffect(() => {
     async function fetchName() {
       try {
-        const name = await invoke<string>("get_employee_name", { employeeId });
+        const name = await invoke<string>("get_employee_name", { id: employeeId });
         setEmployeeName(name);
       } catch (err) {
         console.error("❌ Failed to fetch employee name:", err);

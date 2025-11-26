@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { invoke } from "@tauri-apps/api/core";
@@ -13,6 +13,9 @@ interface Performance {
   kg_num: number;
   mt_num: number;
   mld_num: number;
+  mld_45_num: number;
+  mld_60_num: number;
+  ma_num: number;
   fango_num: number;
   ultraschal_num: number;
   hb_num: number;
@@ -24,6 +27,9 @@ interface FormState {
   kg: string;
   mt: string;
   mld: string;
+  mld_45: string;
+  mld_60: string;
+  ma: string;
   fango: string;
   ultraschal: string;
   hb: string;
@@ -38,11 +44,16 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
   kg: "0",
   mt: "0",
   mld: "0",
+  mld_45: "0",
+  mld_60: "0",
+  ma: "0",
   fango: "0",
   ultraschal: "0",
   hb: "0",
   });
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
 
   async function loadPerformance() {
     try {
@@ -62,24 +73,28 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
 
   // when date changes, update form with record if exists
   useEffect(() => {
+    // const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
     const day = selectedDate.toLocaleDateString("sv-SE");
     const record = performances.find((p) => p.date === day);
     if (record) {
       setSelectedRecordId(record.id);
       setForm({
-        hours: record.hours_worked.toString(),
+        hours: record.hours_worked?.toString() || "0" ,
         status: record.status,
-        income: record.income.toString(),
-        kg: record.kg_num.toString(),
-        mt: record.mt_num.toString(),
-        mld: record.mld_num.toString(),
-        fango: record.fango_num.toString(),
-        ultraschal: record.ultraschal_num.toString(),
-        hb: record.hb_num.toString(),
+        income: record.income?.toString() || "0",
+        kg: record.kg_num?.toString() || "0",
+        mt: record.mt_num?.toString() || "0",
+        mld: record.mld_num?.toString() || "0",
+        mld_45: record.mld_45_num?.toString() || "0",
+        mld_60: record.mld_60_num?.toString() || "0",
+        ma: record.ma_num?.toString() || "0",
+        fango: record.fango_num?.toString() || "0",
+        ultraschal: record.ultraschal_num?.toString() || "0",
+        hb: record.hb_num?.toString() || "0",
       });
     } else {
       setSelectedRecordId(null);
-      setForm({ hours: "0", status: "Present", income: "0", kg: "0", mt: "0", mld: "0", fango: "0", ultraschal: "0", hb: "0" });
+      setForm({ hours: "0", status: "Present", income: "0", kg: "0", mt: "0", mld: "0", mld_45: "0", mld_60: "0", ma: "0", fango: "0", ultraschal: "0", hb: "0" });
     }
   }, [selectedDate, performances]);
 
@@ -98,6 +113,9 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
       kgNum: parseInt((form as any).kg) || 0,
       mtNum: parseInt((form as any).mt) || 0,
       mldNum: parseInt((form as any).mld) || 0,
+      mld45Num: parseInt((form as any).mld_45) || 0,
+      mld60Num: parseInt((form as any).mld_60) || 0,
+      maNum: parseInt((form as any).ma) || 0,
       fangoNum: parseInt((form as any).fango) || 0,
       ultraschalNum: parseInt((form as any).ultraschal) || 0,
       hbNum: parseInt((form as any).hb) || 0,
@@ -125,7 +143,9 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
     if (!record) return "";
     if (record.status === "Krank") return "day-sick";
     if (record.status === "Urlaub") return "day-vacation";
-    return "day-present";
+    if (record.status === "Present") return "day-present";
+    if (record.status === "Feiertag") return "holiday-day";
+    if (record.status === "Sonstige") return "null";
   }
 
   return (
@@ -150,6 +170,7 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
           .day-present { background: #c8f7c5 !important; border-radius: 6px; }
           .day-sick { background: #f85a2eff !important; border-radius: 6px; }
           .day-vacation { background: #b3e5fc !important; border-radius: 6px; }
+          .holiday-day { background: #f59fefff!important; border-radius: 6px; }
         `}
       </style>
     </div>
@@ -178,16 +199,19 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
         }}
       >
         {[
-          { label: "Arbeitsstunden", key: "hours", type: "number" },
           { label: "Status", key: "status", type: "select" },
+          { label: "Arbeitsstunden", key: "hours", type: "number" },
           { label: "Income (€)", key: "income", type: "number" },
           { label: "KG", key: "kg", type: "number" },
           { label: "MT", key: "mt", type: "number" },
           { label: "MLD", key: "mld", type: "number" },
+          { label: "MLD 45", key: "mld_45", type: "number" },
+          { label: "MLD 60", key: "mld_60", type: "number" },
+          { label: "MA", key: "ma", type: "number" },
           { label: "Fango", key: "fango", type: "number" },
           { label: "Ultraschal", key: "ultraschal", type: "number" },
           { label: "HB", key: "hb", type: "number" },
-        ].map((field) => (
+        ].map((field, i) => (
           <div
             key={field.key}
             style={{
@@ -218,15 +242,63 @@ export default function DailyPerformanceView({ employeeId }: { employeeId: numbe
                 <option>Present</option>
                 <option>Krank</option>
                 <option>Urlaub</option>
+                <option>Feiertag</option>
+                <option>Sonstige</option>
               </select>
             ) : (
               <input
+                ref={(el) => {inputRefs.current[i] = el;}}
                 style={{ flex: 1, padding: "6px" }}
                 type="number"
                 value={(form as any)[field.key]}
+                onFocus={(e) => {
+                  if (e.target.value === "0") e.target.value = "";
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === "") {
+                    setForm({ ...form, [field.key]: "0" });
+                  }
+                }}
                 onChange={(e) =>
                   setForm({ ...form, [field.key]: e.target.value })
                 }
+                onKeyDown={(e) => {
+                  console.log("keyDown! '"+e.key+"'");
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+
+                    const next = inputRefs.current[i + 1];
+                    if (next) {
+                      next.focus();
+                    } else {
+                      // optional: save when last field is reached
+                      savePerformance();
+                    }
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+
+                    const prev = inputRefs.current[i - 1];
+                    if (prev) {
+                      prev.focus();
+                    } else {
+                      const prev = inputRefs.current[i];
+                      if (prev)
+                        {prev.focus();}
+                    }
+                  }
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+
+                    const next = inputRefs.current[i + 1];
+                    if (next) {
+                      next.focus();
+                    } else {
+                      // optional: save when last field is reached
+                      //savePerformance();
+                    }
+                  }
+                }}
               />
             )}
           </div>

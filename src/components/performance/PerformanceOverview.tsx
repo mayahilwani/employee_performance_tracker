@@ -16,18 +16,30 @@ interface MonthlyStats {
   month: string;
   total_hours: number;
   work_days: number;
+  sick_days: number;
+  vacation_days: number;
   cost: number;
   generated_income: number;
   total_kg: number;
   total_mt: number;
-  total_mld: number;
+  total_mld_30: number;
+  total_mld_45: number;
+  total_mld_60: number;
   total_fango: number;
   total_ultraschal: number;
   total_hb: number;
+  hours_needed: number;
+}
+
+interface HoursStats {
+  month: string;
+  hours_worked: number;
+  hours_needed: number;
 }
 
 export default function PerformanceOverview({ employeeId }: { employeeId: number }) {
   const [stats, setStats] = useState<MonthlyStats[]>([]);
+  const [hours_stats, setHoursStats] = useState<HoursStats[]>([]);
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [startMonth, setStartMonth] = useState(thisMonth);
@@ -55,6 +67,7 @@ export default function PerformanceOverview({ employeeId }: { employeeId: number
       });
       console.log("📊 Stats:", result);
       setStats(result);
+      //setHoursStats(s.month, s.total_hours, (s.work_days * s.contract_hours));
     } catch (err) {
       console.error("❌ Failed to fetch stats:", err);
     } finally {
@@ -110,7 +123,9 @@ export default function PerformanceOverview({ employeeId }: { employeeId: number
               <tr>
                 <th>Monat</th>
                 <th>Stunden</th>
-                <th>Arbeit tagen</th>
+                <th>Arbeits tagen</th>
+                <th>Krank tagen</th>
+                <th>Urlaub tagen</th>
                 <th>Einkomm (€)</th>
                 <th>Kosten (€)</th>
               </tr>
@@ -121,6 +136,8 @@ export default function PerformanceOverview({ employeeId }: { employeeId: number
                   <td>{s.month}</td>
                   <td>{s.total_hours.toFixed(1)}</td>
                   <td>{s.work_days}</td>
+                  <td>{s.sick_days}</td>
+                  <td>{s.vacation_days}</td>
                   <td>{s.generated_income.toFixed(2)}</td>
                   <td>{s.cost.toFixed(3)}</td>
                 </tr>
@@ -136,6 +153,17 @@ export default function PerformanceOverview({ employeeId }: { employeeId: number
               <Legend />
               <Bar dataKey="cost" fill="#ff9e80" name="Employee Cost" />
               <Bar dataKey="generated_income" fill="#4caf50" name="Income Generated" />
+            </BarChart>
+          </ResponsiveContainer>
+
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={stats}> 
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="total_hours" fill="#ff9e80" name="Arbeit Stunden(Aktuelle)" />
+              <Bar dataKey="hours_needed" fill="#4caf50" name="Arbeit Stunden(erforderlich)" />
             </BarChart>
           </ResponsiveContainer>
         </>

@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use rusqlite::{params, Result};
 use tauri::AppHandle;
 use crate::db;
+use crate::employee;
 // use chrono::{NaiveDate, ParseError};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,52 +16,19 @@ pub struct Performance {
     pub kg_num: i32,
     pub mt_num: i32,
     pub mld_num: i32,
+    pub mld_45_num: i32,
+    pub mld_60_num: i32,
+    pub ma_num: i32,
     pub fango_num: i32,
     pub ultraschal_num: i32,
     pub hb_num: i32,
 }
 
 #[tauri::command]
-pub fn get_performance(app_handle: AppHandle, employee_id: i32, date: String) -> Result<Vec<Performance>, String> {
-    let conn = db::init_db(&app_handle).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare(
-        "SELECT id, employee_id, date, hours_worked, status, income, kg_num, mt_num, mld_num, fango_num, ultraschal_num, hb_num 
-         FROM performance 
-         WHERE employee_id = ?1 and date = ?2"
-    ).map_err(|e| e.to_string())?;
-    
-    let performances_iter = stmt
-        .query_map(params![employee_id, date], |row| {
-            Ok(Performance {
-                id: row.get(0)?,
-                employee_id: row.get(1)?,
-                date: row.get(2)?,
-                hours_worked: row.get(3)?,
-                status: row.get(4)?,
-                income: row.get(5)?,
-                kg_num: row.get(6)?,
-                mt_num: row.get(7)?,
-                mld_num: row.get(8)?,
-                fango_num: row.get(9)?,
-                ultraschal_num: row.get(10)?,
-                hb_num: row.get(11)?,
-            })
-        })
-        .map_err(|e| e.to_string())?;
-
-    let mut performances = Vec::new();
-    for perf in performances_iter {
-        performances.push(perf.map_err(|e| e.to_string())?);
-    }
-    println!("📊 Loading performance for employee {}", employee_id);
-    Ok(performances)
-}
-
-#[tauri::command]
 pub fn get_all_performance(app_handle: AppHandle, employee_id: i32) -> Result<Vec<Performance>, String> {
     let conn = db::init_db(&app_handle).map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
-        "SELECT id, employee_id, date, hours_worked, status, income, kg_num, mt_num, mld_num, fango_num, ultraschal_num, hb_num
+        "SELECT id, employee_id, date, hours_worked, status, income, kg_num, mt_num, mld_num, mld_45_num, mld_60_num, ma_num, fango_num, ultraschal_num, hb_num
          FROM performance 
          WHERE employee_id = ?1"
     ).map_err(|e| e.to_string())?;
@@ -76,9 +44,12 @@ pub fn get_all_performance(app_handle: AppHandle, employee_id: i32) -> Result<Ve
             kg_num: row.get(6)?,
             mt_num: row.get(7)?,
             mld_num: row.get(8)?,
-            fango_num: row.get(9)?,
-            ultraschal_num: row.get(10)?,
-            hb_num: row.get(11)?,
+            mld_45_num: row.get(9)?,
+            mld_60_num: row.get(10)?,
+            ma_num: row.get(11)?,
+            fango_num: row.get(12)?,
+            ultraschal_num: row.get(13)?,
+            hb_num: row.get(14)?,
         })
     }).map_err(|e| e.to_string())?;
 
@@ -137,6 +108,9 @@ pub fn update_performance(
     kg_num: i32,
     mt_num: i32,
     mld_num: i32,
+    mld45_num: i32,
+    mld60_num: i32,
+    ma_num: i32,
     fango_num: i32,
     ultraschal_num: i32,
     hb_num: i32,
@@ -144,9 +118,9 @@ pub fn update_performance(
     let conn = db::init_db(&app_handle).map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE performance 
-         SET hours_worked = ?1, status = ?2, income = ?3, kg_num = ?4, mt_num = ?5, mld_num = ?6, fango_num = ?7, ultraschal_num = ?8, hb_num = ?9 
-         WHERE id = ?10",
-        params![hours_worked, status, income, kg_num, mt_num, mld_num, fango_num, ultraschal_num, hb_num, id],
+         SET hours_worked = ?1, status = ?2, income = ?3, kg_num = ?4, mt_num = ?5, mld_num = ?6, mld_45_num = ?7, mld_60_num = ?8, ma_num = ?9, fango_num = ?10, ultraschal_num = ?11, hb_num = ?12 
+         WHERE id = ?13",
+        params![hours_worked, status, income, kg_num, mt_num, mld_num, mld45_num, mld60_num, ma_num, fango_num, ultraschal_num, hb_num, id],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -156,14 +130,20 @@ pub struct MonthlyStats {
     pub month: String,
     pub total_hours: f64,
     pub work_days: i32,
+    pub sick_days: i32,
+    pub vacation_days: i32,
     pub cost: f64,            // employee monthly rate
     pub generated_income: f64, // income generated from therapies
     pub total_kg: i32,
     pub total_mt: i32,
     pub total_mld: i32,
+    pub total_mld_45: i32,
+    pub total_mld_60: i32,
+    pub total_ma: i32,
     pub total_fango: i32,
     pub total_ultraschal: i32,
     pub total_hb: i32,
+    pub hours_needed: f64,
 }
 
 #[tauri::command]
@@ -188,14 +168,24 @@ pub fn get_monthly_stats(
         therapy_prices.insert(name, price);
     }
 
+    // Fetch employee avg_hours
+    let avg_hours = employee::get_employee_avg_hours(app_handle, employee_id).unwrap_or("8.0".to_string());
+    println!("✅ fetched avg_hours {} ", avg_hours);
+
+
     // Base monthly performance query
     let base_query = "
         SELECT substr(date, 1, 7) AS month,
                SUM(hours_worked) AS total_hours,
                COUNT(CASE WHEN status = 'Present' THEN 1 END) AS work_days,
+               COUNT(CASE WHEN status = 'Krank' THEN 1 END) AS sick_days,
+               COUNT(CASE WHEN status = 'Urlaub' THEN 1 END) AS vacation_days,
                SUM(kg_num) AS total_kg,
                SUM(mt_num) AS total_mt,
                SUM(mld_num) AS total_mld,
+               SUM(mld_45_num) AS total_mld_45,
+               SUM(mld_60_num) AS total_mld_60,
+               SUM(ma_num) AS total_ma,
                SUM(fango_num) AS total_fango,
                SUM(ultraschal_num) AS total_ultraschal,
                SUM(hb_num) AS total_hb
@@ -233,32 +223,47 @@ pub fn get_monthly_stats(
 
     let map_row = |row: &rusqlite::Row| -> Result<MonthlyStats, rusqlite::Error> {
         let month: String = row.get(0)?;
-        let total_kg: i32 = row.get(3)?;
-        let total_mt: i32 = row.get(4)?;
-        let total_mld: i32 = row.get(5)?;
-        let total_fango: i32 = row.get(6)?;
-        let total_ultraschal: i32 = row.get(7)?;
-        let total_hb: i32 = row.get(8)?;
+        let work_days = row.get(2)?;
+        let total_kg: i32 = row.get(5)?;
+        let total_mt: i32 = row.get(6)?;
+        let total_mld: i32 = row.get(7)?;
+        let total_mld_45: i32 = row.get(8)?;
+        let total_mld_60: i32 = row.get(9)?;
+        let total_ma: i32 = row.get(10)?;
+        let total_fango: i32 = row.get(11)?;
+        let total_ultraschal: i32 = row.get(12)?;
+        let total_hb: i32 = row.get(13)?;
 
         let income = (total_kg as f64) * *therapy_prices.get("kg").unwrap_or(&0.0)
             + (total_mt as f64) * *therapy_prices.get("mt").unwrap_or(&0.0)
-            + (total_mld as f64) * *therapy_prices.get("mld").unwrap_or(&0.0)
+            + (total_mld as f64) * *therapy_prices.get("mld-30").unwrap_or(&0.0)
+            + (total_mld_45 as f64) * *therapy_prices.get("mld-45").unwrap_or(&0.0)
+            + (total_mld_60 as f64) * *therapy_prices.get("mld-60").unwrap_or(&0.0)
+            + (total_ma as f64) * *therapy_prices.get("ma").unwrap_or(&0.0)
             + (total_fango as f64) * *therapy_prices.get("fango").unwrap_or(&0.0)
             + (total_ultraschal as f64) * *therapy_prices.get("ultraschal").unwrap_or(&0.0)
             + (total_hb as f64) * *therapy_prices.get("hb").unwrap_or(&0.0);
+        // let hours_needed = (emp_rate / 160.0 * avg_hours.parse::<f64>().unwrap_or(8.0)) as i32;
+        let hours_needed = avg_hours.parse::<f64>().unwrap() * work_days as f64;
 
         Ok(MonthlyStats {
             month,
             total_hours: row.get(1)?,
-            work_days: row.get(2)?,
+            work_days,
+            sick_days: row.get(3)?,
+            vacation_days: row.get(4)?,
             cost: emp_rate,
             generated_income: income,
             total_kg,
             total_mt,
             total_mld,
+            total_mld_45,
+            total_mld_60,
+            total_ma,
             total_fango,
             total_ultraschal,
             total_hb,
+            hours_needed,
         })
     };
 

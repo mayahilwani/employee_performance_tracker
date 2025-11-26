@@ -11,13 +11,11 @@ interface Employee {
 interface EmployeeListProps {
   onSelectEmployee: (id: number) => void;
   onGoToTherapies: () => void;
+  onGoToEmployeeEdit: () => void;
 }
 
-export default function EmployeeList({ onSelectEmployee, onGoToTherapies  }: EmployeeListProps) {
+export default function EmployeeList({ onSelectEmployee, onGoToTherapies, onGoToEmployeeEdit }: EmployeeListProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [name, setName] = useState("");
-  const [joindate, setJoinDate] = useState("");
-  const [monthlyrate, setMonthlyRate] = useState("");
   const [error, setError] = useState("");
 
   async function fetchEmployees() {
@@ -33,30 +31,6 @@ export default function EmployeeList({ onSelectEmployee, onGoToTherapies  }: Emp
     }
   }
 
-  async function addEmployee() {
-    if (!name || !joindate || !monthlyrate) {
-      setError("Please fill all fields");
-      return;
-    }
-
-    try {
-      console.log("🔄 Adding employee:", { name, joindate, monthlyrate });
-      setError("");
-      await invoke('add_employee', { 
-        name, 
-        joinDate: joindate, 
-        monthlyRate: parseFloat(monthlyrate) 
-      });
-      console.log("✅ Employee added, refreshing list...");
-      await fetchEmployees();
-      setName("");
-      setJoinDate("");
-      setMonthlyRate("");
-    } catch (error) {
-      console.error('❌ Failed to add employee:', error);
-      setError(`Failed to add employee: ${error}`);
-    }
-  }
 
   useEffect(() => {
     console.log("🎯 EmployeeList component mounted");
@@ -73,42 +47,13 @@ export default function EmployeeList({ onSelectEmployee, onGoToTherapies  }: Emp
         </div>
       )}
 
-      <div className="my-4 space-y-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name"
-          className="border p-1 mr-2"
-        />
-        <input
-          value={joindate}
-          onChange={(e) => setJoinDate(e.target.value)}
-          placeholder="Beigetreten am (JJJJ-MM-TT)"
-          className="border p-1 mr-2"
-        />
-        <input
-          value={monthlyrate}
-          onChange={(e) => setMonthlyRate(e.target.value)}
-          placeholder="Gehalt pro Monat"
-          type="number"
-          step="0.01"
-          className="border p-1 mr-2"
-        />
-        <button
-          onClick={addEmployee}
-          className="bg-blue-500 text-white px-2 py-1 rounded"
-        >
-          Mitarbeiten hinfügen
-        </button>
-      </div>
-
       {employees.length === 0 ? (
         <p>Noch Keine Mitarbeiter, fueg welchen hin!</p>
       ) : (
         <ul>
           {employees.map((emp) => (
             <li key={emp.id} className="border-b py-2">
-              <strong>{emp.name}</strong> — {emp.join_date} — €{emp.monthly_rate.toFixed(2)}/Monat
+              <strong>{emp.name}</strong>
               <button
                 onClick={() => onSelectEmployee(emp.id)}
                 className="ml-4 bg-green-500 text-white px-2 py-1 rounded text-sm"
@@ -121,6 +66,9 @@ export default function EmployeeList({ onSelectEmployee, onGoToTherapies  }: Emp
       )}
       <button onClick={onGoToTherapies} style={{ marginTop: 20 }}>
         Therapien Liste
+      </button>
+      <button onClick={onGoToEmployeeEdit} style={{ marginTop: 20 }}>
+        Mitarbeiter Liste
       </button>
     </div>
   );
